@@ -2,9 +2,10 @@ import requests
 import json
 import time
 from pathlib import Path
+from bs4 import BeautifulSoup
 
-# Define all card sets with their card counts
-CARD_SETS = {
+# Known card sets (fallback if auto-detection fails)
+KNOWN_CARD_SETS = {
     'SOR': 252,  # Spark of Rebellion
     'TWI': 257,  # Twilight of the Republic
     'SHD': 262,  # Shadows of the Galaxy
@@ -14,6 +15,58 @@ CARD_SETS = {
 }
 
 API_BASE_URL = "https://api.swu-db.com/cards"
+SETS_PAGE_URL = "https://www.swu-db.com/sets"
+
+def discover_card_sets():
+    """Automatically discover available card sets from the SWU-DB website."""
+    print("Discovering available card sets...")
+    
+    try:
+        response = requests.get(SETS_PAGE_URL, timeout=15)
+        if response.status_code != 200:
+            print(f"Failed to fetch sets page. Using known sets as fallback.")
+            return KNOWN_CARD_SETS
+        
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Find all set entries in the table
+        discovered_sets = {}
+        
+        # Look for table rows with set information
+        for row in soup.find_all('tr'):
+            cells = row.find_all('td')
+            if len(cells) >= 3:
+                # Try to extract set code and card count
+                set_code = cells[1].get_text(strip=True) if len(cells) > 1 else None
+                card_count_text = cells[2].get_text(strip=True) if len(cells) > 2 else None
+                
+                if set_code and card_count_text:
+                    try:
+                        # Clean up set code (remove spaces, get uppercase)
+                        set_code = set_code.strip().upper()
+                        # Extract numeric card count
+                        card_count = int(''.join(filter(str.isdigit, card_count_text)))
+                        
+                        # Only include main sets (3-4 letter codes, not promos)
+                        if 2 <= len(set_code) <= 4 and card_count > 50:
+                            discovered_sets[set_code] = card_count
+                            print(f"  Found: {set_code} ({card_count} cards)")
+                    except (ValueError, AttributeError):
+                        continue
+        
+        if discovered_sets:
+            print(f"\nDiscovered {len(discovered_sets)} card sets!")
+            # Merge with known sets, prioritizing discovered ones
+            merged_sets = {**KNOWN_CARD_SETS, **discovered_sets}
+            return merged_sets
+        else:
+            print("No sets discovered. Using known sets as fallback.")
+            return KNOWN_CARD_SETS
+            
+    except Exception as e:
+        print(f"Error discovering sets: {e}")
+        print("Using known sets as fallback.")
+        return KNOWN_CARD_SETS
 
 def fetch_card(set_code, card_number):
     """Fetch a single card from the API."""
@@ -29,15 +82,18 @@ def fetch_card(set_code, card_number):
         print(f"Error fetching {set_code}/{card_number}: {e}")
         return None
 
-def build_database():
+def build_database(card_sets=None):
     """Build the complete card database."""
+    if card_sets is None:
+        card_sets = discover_card_sets()
+    
     all_cards = []
-    total_cards = sum(CARD_SETS.values())
+    total_cards = sum(card_sets.values())
     current_card = 0
     
-    print(f"Starting to fetch {total_cards} cards from {len(CARD_SETS)} sets...")
+    print(f"\nStarting to fetch {total_cards} cards from {len(card_sets)} sets...")
     
-    for set_code, card_count in CARD_SETS.items():
+    for set_code, card_count in card_sets.items():
         print(f"\nFetching {set_code} set ({card_count} cards)...")
         
         for card_num in range(1, card_count + 1):
