@@ -1,0 +1,29 @@
+{
+  "total_cards": 1553,
+  "by_set": {
+    "SOR": 252,
+    "TWI": 257,
+    "SHD": 262,
+    "LOF": 256,
+    "JTL": 262,
+    "SEC": 264
+  },
+  "by_type": {
+    "Leader": 108,
+    "Base": 57,
+    "Unit": 962,
+    "Event": 319,
+    "Upgrade": 107
+  },
+  "by_rarity": {
+    "Common": 656,
+    "Rare": 354,
+    "Special": 75,
+    "Uncommon": 360,
+    "Legendary": 108
+  },
+  "by_aspect": {},
+  "by_arena": {
+    "N/A": 1553
+  }
+}
